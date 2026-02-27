@@ -115,15 +115,27 @@ const App: React.FC = () => {
     try {
       const elementList = elements.split(',').map(e => e.trim()).filter(e => e.length > 0);
 
-      const generatedStory = await generateStory({
-        elements: elementList,
-        language,
-        genre,
-        imageStyle
-      });
-      setStory(generatedStory);
+      // 1. Generate Story Text
+      let generatedStory: StoryResponse;
+      try {
+        generatedStory = await generateStory({
+          elements: elementList,
+          language,
+          genre,
+          imageStyle
+        });
+        setStory(generatedStory);
+      } catch (err) {
+        console.error("Story generation failed:", err);
+        setError("Failed to weave the story text. The weaver might be tired, please try again.");
+        setLoading(false);
+        setLoadingImages(false);
+        return;
+      }
+
       setLoading(false);
 
+      // 2. Generate Images (Sequential to avoid 429 Rate Limits)
       const imagePrompts = [
         `Title: ${generatedStory.title}. Scene: The beginning. Elements: ${elements}`,
         `Title: ${generatedStory.title}. Scene: A key moment. Elements: ${elements}`,
@@ -132,14 +144,27 @@ const App: React.FC = () => {
         `Title: ${generatedStory.title}. Scene: The conclusion. Elements: ${elements}`,
       ];
 
-      const imageResults = await Promise.all(
-        imagePrompts.map(prompt => generateStoryImage(prompt, imageStyle))
-      );
+      const generatedImages: string[] = [];
+      for (let i = 0; i < imagePrompts.length; i++) {
+        try {
+          const img = await generateStoryImage(imagePrompts[i], imageStyle);
+          if (img) {
+            generatedImages.push(img);
+            // Update UI as images come in for better UX
+            setImages([...generatedImages]);
+          }
+        } catch (err) {
+          console.error(`Image ${i + 1} failed:`, err);
+          // Continue with next images even if one fails
+        }
+      }
 
-      setImages(imageResults.filter((img): img is string => img !== null));
+      if (generatedImages.length === 0) {
+        console.warn("No images could be generated.");
+      }
     } catch (err) {
-      console.error(err);
-      setError("Failed to weave your story or art. Please try again.");
+      console.error("General generation error:", err);
+      setError("Something went wrong with the magic. Please try one more time.");
     } finally {
       setLoading(false);
       setLoadingImages(false);

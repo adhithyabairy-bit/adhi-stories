@@ -45,6 +45,9 @@ export const generateStory = async (req: StoryRequest): Promise<StoryResponse> =
     }
   });
 
+  if (!response.text) {
+    throw new Error("No story text was generated. Please try again.");
+  }
   const jsonStr = response.text.trim();
   return JSON.parse(jsonStr) as StoryResponse;
 };
@@ -67,7 +70,12 @@ export const generateStoryImage = async (prompt: string, style: ImageStyle): Pro
       },
     });
 
-    for (const part of response.candidates[0].content.parts) {
+    const candidates = response.candidates;
+    if (!candidates || candidates.length === 0 || !candidates[0].content || !candidates[0].content.parts) {
+      return null;
+    }
+
+    for (const part of candidates[0].content.parts) {
       if (part.inlineData) {
         return `data:image/png;base64,${part.inlineData.data}`;
       }
