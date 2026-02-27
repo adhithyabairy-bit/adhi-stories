@@ -125,9 +125,14 @@ const App: React.FC = () => {
           imageStyle
         });
         setStory(generatedStory);
-      } catch (err) {
+      } catch (err: any) {
         console.error("Story generation failed:", err);
-        setError("Failed to weave the story text. The weaver might be tired, please try again.");
+        const errorMessage = err.message || "";
+        if (errorMessage.includes("API key")) {
+          setError(errorMessage);
+        } else {
+          setError("Failed to weave the story text. The weaver might be tired, please try again.");
+        }
         setLoading(false);
         setLoadingImages(false);
         return;
